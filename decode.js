@@ -103,9 +103,15 @@ function readValue(pbf) {
     return value;
 }
 
+const UNSAFE_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+
 function readProps(pbf, props) {
     const end = pbf.readVarint() + pbf.pos;
-    while (pbf.pos < end) props[keys[pbf.readVarint()]] = values[pbf.readVarint()];
+    while (pbf.pos < end) {
+        const key = keys[pbf.readVarint()];
+        const val = values[pbf.readVarint()];
+        if (!UNSAFE_KEYS.has(key)) props[key] = val;
+    }
     values = [];
     return props;
 }

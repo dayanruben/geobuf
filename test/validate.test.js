@@ -78,6 +78,27 @@ test('roundtrip a circle with potential accumulating error', () => {
     assert.deepEqual(ringRoundTripped, ringOrig);
 });
 
+test('prototype pollution via __proto__ key is not possible', () => {
+    // Craft a raw geobuf payload with '__proto__' as a key name, bypassing encode
+    // (encode can't represent it since for..in skips __proto__ even as an own property).
+    // Format: keys[0]='__proto__', FeatureCollection > Feature > properties: {[keys[0]]: "injected"}
+    const protoKey = '__proto__';
+    const buf = new Pbf();
+    buf.writeStringField(1, protoKey);
+    buf.writeMessage(4, (_, pbf) => {
+        pbf.writeMessage(1, (_, pbf) => {
+            pbf.writeMessage(13, (_, pbf) => { pbf.writeStringField(1, 'injected'); }, null);
+            pbf.writePackedVarint(14, [0, 0]);
+        }, null);
+    }, null);
+
+    const sentinel = {};
+    const decoded = geobuf.decode(new Pbf(buf.finish()));
+    assert.equal(sentinel.polluted, undefined, 'Object.prototype must not be polluted');
+    assert.equal(Object.getPrototypeOf(decoded.features[0].properties), Object.prototype);
+    assert.equal(Object.getOwnPropertyDescriptor(decoded.features[0].properties, protoKey), undefined, 'unsafe key must be dropped');
+});
+
 function roundtripTest(geojson) {
     return function () {
         const buf = geobuf.encode(geojson, new Pbf());

@@ -11,7 +11,7 @@
   },
   "scripts": {
     "pretest": "eslint *.js test/*.js bin/*.js",
-    "test": "node test/*.js",
+    "test": "node --test",
     "build": "rolldown -c",
     "prepublishOnly": "npm test && npm run build"
   },
