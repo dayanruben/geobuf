@@ -1,6 +1,6 @@
 {
   "name": "geobuf",
-  "version": "3.0.2",
+  "version": "4.0.0",
   "description": "Compact binary encoding for geographic data",
   "type": "module",
   "main": "index.js",
