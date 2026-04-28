@@ -1,5 +1,5 @@
 
-let keys, keysNum, keysArr, dim, e;
+let keys, keysArr, dim, e;
 const maxPrecision = 1e6;
 
 const geometryTypes = {
@@ -15,7 +15,6 @@ const geometryTypes = {
 export function encode(obj, pbf) {
     keys = {};
     keysArr = [];
-    keysNum = 0;
     dim = 0;
     e = 1;
 
@@ -24,7 +23,7 @@ export function encode(obj, pbf) {
     e = Math.min(e, maxPrecision);
     const precision = Math.ceil(Math.log(e) / Math.LN10);
 
-    for (let i = 0; i < keysArr.length; i++) pbf.writeStringField(1, keysArr[i]);
+    for (const key of keysArr) pbf.writeStringField(1, key);
     if (dim !== 2) pbf.writeVarintField(2, dim);
     if (precision !== 6) pbf.writeVarintField(3, precision);
 
@@ -38,58 +37,52 @@ export function encode(obj, pbf) {
 }
 
 function analyze(obj) {
-    let i, key;
-
     if (obj.type === 'FeatureCollection') {
-        for (i = 0; i < obj.features.length; i++) analyze(obj.features[i]);
+        for (const feature of obj.features) analyze(feature);
 
     } else if (obj.type === 'Feature') {
         if (obj.geometry !== null) analyze(obj.geometry);
-        for (key in obj.properties) saveKey(key);
+        for (const key in obj.properties) saveKey(key);
 
     } else if (obj.type === 'Point') analyzePoint(obj.coordinates);
     else if (obj.type === 'MultiPoint') analyzePoints(obj.coordinates);
     else if (obj.type === 'GeometryCollection') {
-        for (i = 0; i < obj.geometries.length; i++) analyze(obj.geometries[i]);
+        for (const geom of obj.geometries) analyze(geom);
     } else if (obj.type === 'LineString') analyzePoints(obj.coordinates);
     else if (obj.type === 'Polygon' || obj.type === 'MultiLineString') analyzeMultiLine(obj.coordinates);
     else if (obj.type === 'MultiPolygon') {
-        for (i = 0; i < obj.coordinates.length; i++) analyzeMultiLine(obj.coordinates[i]);
+        for (const polygon of obj.coordinates) analyzeMultiLine(polygon);
     }
 
-    for (key in obj) {
+    for (const key in obj) {
         if (!isSpecialKey(key, obj.type)) saveKey(key);
     }
 }
 
 function analyzeMultiLine(coords) {
-    for (let i = 0; i < coords.length; i++) analyzePoints(coords[i]);
+    for (const line of coords) analyzePoints(line);
 }
 
 function analyzePoints(coords) {
-    for (let i = 0; i < coords.length; i++) analyzePoint(coords[i]);
+    for (const point of coords) analyzePoint(point);
 }
 
 function analyzePoint(point) {
     dim = Math.max(dim, point.length);
 
-    // find max precision
-    for (let i = 0; i < point.length; i++) {
-        while (Math.round(point[i] * e) / e !== point[i] && e < maxPrecision) e *= 10;
+    for (const coord of point) {
+        while (Math.round(coord * e) / e !== coord && e < maxPrecision) e *= 10;
     }
 }
 
 function saveKey(key) {
     if (keys[key] === undefined) {
-        keysArr.push(key);
-        keys[key] = keysNum++;
+        keys[key] = keysArr.push(key) - 1;
     }
 }
 
 function writeFeatureCollection(obj, pbf) {
-    for (let i = 0; i < obj.features.length; i++) {
-        pbf.writeMessage(1, writeFeature, obj.features[i]);
-    }
+    for (const feature of obj.features) pbf.writeMessage(1, writeFeature, feature);
     writeProps(obj, pbf, true);
 }
 
@@ -117,7 +110,7 @@ function writeGeometry(geom, pbf) {
     else if (geom.type === 'Polygon') writeMultiLine(coords, pbf, true);
     else if (geom.type === 'MultiPolygon') writeMultiPolygon(coords, pbf);
     else if (geom.type === 'GeometryCollection') {
-        for (let i = 0; i < geom.geometries.length; i++) pbf.writeMessage(4, writeGeometry, geom.geometries[i]);
+        for (const g of geom.geometries) pbf.writeMessage(4, writeGeometry, g);
     }
 
     writeProps(geom, pbf, true);
@@ -128,9 +121,7 @@ function writeProps(props, pbf, isCustom) {
     let valueIndex = 0;
 
     for (const key in props) {
-        if (isCustom && isSpecialKey(key, props.type)) {
-            continue;
-        }
+        if (isCustom && isSpecialKey(key, props.type)) continue;
         pbf.writeMessage(13, writeValue, props[key]);
         indexes.push(keys[key]);
         indexes.push(valueIndex++);
@@ -167,44 +158,39 @@ function writeLine(line, pbf) {
 
 function writeMultiLine(lines, pbf, closed) {
     const len = lines.length;
-    let i;
     if (len !== 1) {
         const lengths = [];
-        for (i = 0; i < len; i++) lengths.push(lines[i].length - (closed ? 1 : 0));
+        for (const line of lines) lengths.push(line.length - (closed ? 1 : 0));
         pbf.writePackedVarint(2, lengths);
-        // TODO faster with custom writeMessage?
     }
     const coords = [];
-    for (i = 0; i < len; i++) populateLine(coords, lines[i], closed);
+    for (const line of lines) populateLine(coords, line, closed);
     pbf.writePackedSVarint(3, coords);
 }
 
 function writeMultiPolygon(polygons, pbf) {
     const len = polygons.length;
-    let i, j;
     if (len !== 1 || polygons[0].length !== 1) {
         const lengths = [len];
-        for (i = 0; i < len; i++) {
-            lengths.push(polygons[i].length);
-            for (j = 0; j < polygons[i].length; j++) lengths.push(polygons[i][j].length - 1);
+        for (const polygon of polygons) {
+            lengths.push(polygon.length);
+            for (const ring of polygon) lengths.push(ring.length - 1);
         }
         pbf.writePackedVarint(2, lengths);
     }
 
     const coords = [];
-    for (i = 0; i < len; i++) {
-        for (j = 0; j < polygons[i].length; j++) populateLine(coords, polygons[i][j], true);
+    for (const polygon of polygons) {
+        for (const ring of polygon) populateLine(coords, ring, true);
     }
     pbf.writePackedSVarint(3, coords);
 }
 
 function populateLine(coords, line, closed) {
-    let i, j;
     const len = line.length - (closed ? 1 : 0);
-    const sum = new Array(dim);
-    for (j = 0; j < dim; j++) sum[j] = 0;
-    for (i = 0; i < len; i++) {
-        for (j = 0; j < dim; j++) {
+    const sum = new Array(dim).fill(0);
+    for (let i = 0; i < len; i++) {
+        for (let j = 0; j < dim; j++) {
             const n = Math.round(line[i][j] * e) - sum[j];
             coords.push(n);
             sum[j] += n;
@@ -214,12 +200,8 @@ function populateLine(coords, line, closed) {
 
 function isSpecialKey(key, type) {
     if (key === 'type') return true;
-    else if (type === 'FeatureCollection') {
-        if (key === 'features') return true;
-    } else if (type === 'Feature') {
-        if (key === 'id' || key === 'properties' || key === 'geometry') return true;
-    } else if (type === 'GeometryCollection') {
-        if (key === 'geometries') return true;
-    } else if (key === 'coordinates') return true;
-    return false;
+    if (type === 'FeatureCollection') return key === 'features';
+    if (type === 'Feature') return key === 'id' || key === 'properties' || key === 'geometry';
+    if (type === 'GeometryCollection') return key === 'geometries';
+    return key === 'coordinates';
 }

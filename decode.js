@@ -7,7 +7,7 @@ const geometryTypes = [
 
 export function decode(pbf) {
     dim = 2;
-    e = Math.pow(10, 6);
+    e = 10 ** 6;
     lengths = null;
 
     keys = [];
@@ -21,7 +21,7 @@ export function decode(pbf) {
 function readDataField(tag, obj, pbf) {
     if (tag === 1) keys.push(pbf.readString());
     else if (tag === 2) dim = pbf.readVarint();
-    else if (tag === 3) e = Math.pow(10, pbf.readVarint());
+    else if (tag === 3) e = 10 ** pbf.readVarint();
 
     else if (tag === 4) readFeatureCollection(pbf, obj);
     else if (tag === 5) readFeature(pbf, obj);
@@ -90,8 +90,8 @@ function readValue(pbf) {
     let value = null;
 
     while (pbf.pos < end) {
-        const val = pbf.readVarint(),
-            tag = val >> 3;
+        const val = pbf.readVarint();
+        const tag = val >> 3;
 
         if (tag === 1) value = pbf.readString();
         else if (tag === 2) value = pbf.readDouble();
@@ -118,15 +118,13 @@ function readPoint(pbf) {
 }
 
 function readLinePart(pbf, end, len, closed) {
-    let i = 0, p, d;
+    let i = 0;
     const coords = [];
-
-    const prevP = [];
-    for (d = 0; d < dim; d++) prevP[d] = 0;
+    const prevP = new Array(dim).fill(0);
 
     while (len ? i < len : pbf.pos < end) {
-        p = [];
-        for (d = 0; d < dim; d++) {
+        const p = [];
+        for (let d = 0; d < dim; d++) {
             prevP[d] += pbf.readSVarint();
             p[d] = prevP[d] / e;
         }
@@ -147,7 +145,7 @@ function readMultiLine(pbf, closed) {
     if (!lengths) return [readLinePart(pbf, end, null, closed)];
 
     const coords = [];
-    for (let i = 0; i < lengths.length; i++) coords.push(readLinePart(pbf, end, lengths[i], closed));
+    for (const len of lengths) coords.push(readLinePart(pbf, end, len, closed));
     lengths = null;
     return coords;
 }
