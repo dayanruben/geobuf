@@ -1,4 +1,2 @@
-'use strict';
-
-exports.encode = require('./encode');
-exports.decode = require('./decode');
+export {encode} from './encode.js';
+export {decode} from './decode.js';

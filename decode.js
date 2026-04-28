@@ -1,21 +1,18 @@
-'use strict';
 
-module.exports = decode;
+let keys, values, lengths, dim, e;
 
-var keys, values, lengths, dim, e;
-
-var geometryTypes = [
+const geometryTypes = [
     'Point', 'MultiPoint', 'LineString', 'MultiLineString',
     'Polygon', 'MultiPolygon', 'GeometryCollection'];
 
-function decode(pbf) {
+export function decode(pbf) {
     dim = 2;
     e = Math.pow(10, 6);
     lengths = null;
 
     keys = [];
     values = [];
-    var obj = pbf.readFields(readDataField, {});
+    const obj = pbf.readFields(readDataField, {});
     keys = null;
 
     return obj;
@@ -39,7 +36,7 @@ function readFeatureCollection(pbf, obj) {
 
 function readFeature(pbf, feature) {
     feature.type = 'Feature';
-    var f = pbf.readMessage(readFeatureField, feature);
+    const f = pbf.readMessage(readFeatureField, feature);
     if (!('geometry' in f)) f.geometry = null;
     return f;
 }
@@ -75,8 +72,7 @@ function readGeometryField(tag, geom, pbf) {
     else if (tag === 4) {
         geom.geometries = geom.geometries || [];
         geom.geometries.push(readGeometry(pbf, {}));
-    }
-    else if (tag === 13) values.push(readValue(pbf));
+    } else if (tag === 13) values.push(readValue(pbf));
     else if (tag === 15) readProps(pbf, geom);
 }
 
@@ -90,11 +86,11 @@ function readCoords(geom, pbf, type) {
 }
 
 function readValue(pbf) {
-    var end = pbf.readVarint() + pbf.pos,
-        value = null;
+    const end = pbf.readVarint() + pbf.pos;
+    let value = null;
 
     while (pbf.pos < end) {
-        var val = pbf.readVarint(),
+        const val = pbf.readVarint(),
             tag = val >> 3;
 
         if (tag === 1) value = pbf.readString();
@@ -108,25 +104,24 @@ function readValue(pbf) {
 }
 
 function readProps(pbf, props) {
-    var end = pbf.readVarint() + pbf.pos;
+    const end = pbf.readVarint() + pbf.pos;
     while (pbf.pos < end) props[keys[pbf.readVarint()]] = values[pbf.readVarint()];
     values = [];
     return props;
 }
 
 function readPoint(pbf) {
-    var end = pbf.readVarint() + pbf.pos,
-        coords = [];
+    const end = pbf.readVarint() + pbf.pos;
+    const coords = [];
     while (pbf.pos < end) coords.push(pbf.readSVarint() / e);
     return coords;
 }
 
 function readLinePart(pbf, end, len, closed) {
-    var i = 0,
-        coords = [],
-        p, d;
+    let i = 0, p, d;
+    const coords = [];
 
-    var prevP = [];
+    const prevP = [];
     for (d = 0; d < dim; d++) prevP[d] = 0;
 
     while (len ? i < len : pbf.pos < end) {
@@ -148,24 +143,24 @@ function readLine(pbf) {
 }
 
 function readMultiLine(pbf, closed) {
-    var end = pbf.readVarint() + pbf.pos;
+    const end = pbf.readVarint() + pbf.pos;
     if (!lengths) return [readLinePart(pbf, end, null, closed)];
 
-    var coords = [];
-    for (var i = 0; i < lengths.length; i++) coords.push(readLinePart(pbf, end, lengths[i], closed));
+    const coords = [];
+    for (let i = 0; i < lengths.length; i++) coords.push(readLinePart(pbf, end, lengths[i], closed));
     lengths = null;
     return coords;
 }
 
 function readMultiPolygon(pbf) {
-    var end = pbf.readVarint() + pbf.pos;
+    const end = pbf.readVarint() + pbf.pos;
     if (!lengths) return [[readLinePart(pbf, end, null, true)]];
 
-    var coords = [];
-    var j = 1;
-    for (var i = 0; i < lengths[0]; i++) {
-        var rings = [];
-        for (var k = 0; k < lengths[j]; k++) rings.push(readLinePart(pbf, end, lengths[j + 1 + k], true));
+    const coords = [];
+    let j = 1;
+    for (let i = 0; i < lengths[0]; i++) {
+        const rings = [];
+        for (let k = 0; k < lengths[j]; k++) rings.push(readLinePart(pbf, end, lengths[j + 1 + k], true));
         j += lengths[j] + 1;
         coords.push(rings);
     }

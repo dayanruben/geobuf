@@ -1,7 +1,5 @@
 # Geobuf
 
-[![Build Status](https://travis-ci.org/mapbox/geobuf.svg)](https://travis-ci.org/mapbox/geobuf)
-
 Geobuf is a compact binary encoding for geographic data.
 
 Geobuf provides _nearly lossless_ compression of GeoJSON data
@@ -43,7 +41,7 @@ Idaho counties      | 10.92 MB  | 2.57 MB   | 1.37 MB  | 1.17 MB
 ### encode
 
 ```js
-var buffer = geobuf.encode(geojson, new Pbf());
+const buffer = geobuf.encode(geojson, new Pbf());
 ```
 
 Given a GeoJSON object and a [Pbf](https://github.com/mapbox/pbf) object to write to,
@@ -53,15 +51,13 @@ In Node@4.5.0 or later, you can use `Buffer.from` to convert back to a buffer.
 ### decode
 
 ```js
-var geojson = geobuf.decode(new Pbf(data));
+const geojson = geobuf.decode(new Pbf(data));
 ```
 
 Given a [Pbf](https://github.com/mapbox/pbf) object with Geobuf data, return a GeoJSON object. When loading Geobuf data over `XMLHttpRequest`, you need to set `responseType` to [`arraybuffer`](https://developer.mozilla.org/en-US/docs/Web/API/XMLHttpRequest/responseType).
 
 
 ## Install
-
-Node and Browserify:
 
 ```bash
 npm install geobuf
@@ -75,9 +71,7 @@ Browser build CDN links:
 Building locally:
 
 ```bash
-npm install
-npm run build-dev # dist/geobuf-dev.js (development build)
-npm run build-min # dist/geobuf.js (minified production build)
+npm run build
 ```
 
 
